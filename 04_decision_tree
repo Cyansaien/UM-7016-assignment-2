@@ -1,0 +1,46 @@
+import pandas as pd
+import seaborn as sns
+import matplotlib.pyplot as plt
+from sklearn.model_selection import train_test_split
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
+
+def train_and_evaluate_model(data_path):
+    df = pd.read_csv(data_path)
+    
+    # Split features and target
+    X = df.drop('target_label', axis=1) 
+    y = df['target_label']              
+
+    # Train/Test Split (80/20)
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+    # Initialize and train the Decision Tree
+    model = DecisionTreeClassifier(random_state=42, max_depth=5) 
+    model.fit(X_train, y_train)
+
+    # Inference on test set
+    predictions = model.predict(X_test)
+
+    # Evaluation Metrics
+    accuracy = accuracy_score(y_test, predictions)
+    print("="*50)
+    print(f"System Testing Accuracy: {accuracy * 100:.2f}%")
+    print("="*50)
+    print("\nClassification Report:")
+    print(classification_report(y_test, predictions, target_names=['Normal (N)', 'PVC (V)']))
+
+    # Plot Confusion Matrix
+    plt.figure(figsize=(6, 4))
+    cm = confusion_matrix(y_test, predictions)
+    sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', 
+                xticklabels=['Predicted N', 'Predicted V'], 
+                yticklabels=['Actual N', 'Actual V'])
+    plt.title('AI Diagnostics Confusion Matrix', fontweight='bold')
+    plt.ylabel('Ground Truth')
+    plt.xlabel('System Prediction')
+    plt.tight_layout()
+    plt.show()
+
+if __name__ == "__main__":
+    train_and_evaluate_model('../data/mitbih_ml_dataset.csv')
