@@ -1,41 +1,59 @@
-import pandas as pd
+"""
+Script 01: Exploratory Data Analysis & Visualization
+This script fetches the pristine MIT-BIH Arrhythmia database directly from 
+the PhysioNet cloud server using the official 'wfdb' library to avoid 
+local text-encoding corruption and parsing errors.
+"""
+
+import wfdb
 import matplotlib.pyplot as plt
 import seaborn as sns
+import numpy as np
 
-def visualize_ecg_with_labels(signal_path, anno_path):
-    sns.set_theme(style="whitegrid")
+def visualize_clinical_ecg(patient_id='106', num_samples=2000):
+    sns.set_theme(style="whitegrid", context="paper", font_scale=1.2)
+    print(f"Fetching pristine data for Patient {patient_id} from MIT-BIH cloud server...")
     
-    # Load raw ECG signal
-    df_signal = pd.read_csv(signal_path)
-    df_signal.iloc[:, 1] = pd.to_numeric(df_signal.iloc[:, 1], errors='coerce')
-    
-    # Load expert annotations
-    df_anno = pd.read_csv(anno_path, sep='\s+')
-    
-    plt.figure(figsize=(15, 5))
-    
-    # Plot raw signal (first 1000 time steps)
-    x_signal = df_signal.index[:1000]
-    y_signal = df_signal.iloc[:1000, 1]
-    sns.lineplot(x=x_signal, y=y_signal, color='#D62728', linewidth=1.5, label='ECG Signal')
-    
-    # Plot expert labels on top of the signal
-    anno_subset = df_anno[df_anno['Sample'] < 1000]
-    for index, row in anno_subset.iterrows():
-        sample_idx = int(row['Sample'])
-        label_type = row['#']
+    try:
+        # Fetch directly from PhysioNet database
+        record = wfdb.rdrecord(patient_id, pn_dir='mitdb', sampfrom=0, sampto=num_samples)
+        annotation = wfdb.rdann(patient_id, 'atr', pn_dir='mitdb', sampfrom=0, sampto=num_samples)
         
-        y_val = df_signal.iloc[sample_idx, 1]
-        plt.scatter(sample_idx, y_val, color='green', s=100, zorder=5)
-        plt.text(sample_idx, y_val + 30, label_type, color='black', fontsize=14, fontweight='bold', ha='center')
-
-    plt.title('Patient 106 - Raw ECG Features matched with Expert Labels', fontsize=14, fontweight='bold')
-    plt.xlabel('Sample Index (Time Step)', fontsize=12)
-    plt.ylabel('Voltage (mV)', fontsize=12)
-    plt.legend(loc='upper right')
-    plt.tight_layout()
-    plt.show()
+        signal = record.p_signal[:, 0]
+        time_steps = np.arange(len(signal))
+        ann_indices = annotation.sample
+        ann_symbols = annotation.symbol
+        
+        plt.figure(figsize=(15, 5))
+        sns.lineplot(x=time_steps, y=signal, color='#D62728', linewidth=1.5, label='Raw ECG Signal')
+        
+        has_n, has_v = False, False
+        for idx, symbol in zip(ann_indices, ann_symbols):
+            y_val = signal[idx]
+            if symbol == 'N':
+                plt.scatter(idx, y_val, color='#2ca02c', s=100, zorder=5, label='Normal (N)' if not has_n else "")
+                plt.text(idx, y_val + 0.15, 'N', color='#2ca02c', fontsize=14, fontweight='bold', ha='center')
+                has_n = True
+            elif symbol == 'V':
+                plt.scatter(idx, y_val, color='#ff7f0e', s=250, marker='*', zorder=6, label='PVC (V)')
+                plt.text(idx, y_val + 0.2, 'V (Anomaly!)', color='#ff7f0e', fontsize=14, fontweight='bold', ha='center')
+                has_v = True
+                
+        plt.title(f'Patient {patient_id} - Identification of Premature Ventricular Contractions (PVC)', fontsize=16, fontweight='bold')
+        plt.xlabel('Sample Index (Time Step)', fontsize=12)
+        plt.ylabel('Voltage (mV)', fontsize=12)
+        
+        handles, labels = plt.gca().get_legend_handles_labels()
+        by_label = dict(zip(labels, handles))
+        plt.legend(by_label.values(), by_label.keys(), loc='upper right')
+        
+        plt.tight_layout()
+        plt.show()
+        print("Visualization complete.")
+        
+    except Exception as e:
+        print(f"Error fetching data from cloud: {e}")
+        print("Please ensure you have an active internet connection and 'wfdb' is installed (pip install wfdb).")
 
 if __name__ == "__main__":
-    # Use relative paths for GitHub
-    visualize_ecg_with_labels('../data/106.csv', '../data/106annotations.txt')
+    visualize_clinical_ecg(patient_id='106')
