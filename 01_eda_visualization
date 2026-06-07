@@ -1,0 +1,41 @@
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+def visualize_ecg_with_labels(signal_path, anno_path):
+    sns.set_theme(style="whitegrid")
+    
+    # Load raw ECG signal
+    df_signal = pd.read_csv(signal_path)
+    df_signal.iloc[:, 1] = pd.to_numeric(df_signal.iloc[:, 1], errors='coerce')
+    
+    # Load expert annotations
+    df_anno = pd.read_csv(anno_path, sep='\s+')
+    
+    plt.figure(figsize=(15, 5))
+    
+    # Plot raw signal (first 1000 time steps)
+    x_signal = df_signal.index[:1000]
+    y_signal = df_signal.iloc[:1000, 1]
+    sns.lineplot(x=x_signal, y=y_signal, color='#D62728', linewidth=1.5, label='ECG Signal')
+    
+    # Plot expert labels on top of the signal
+    anno_subset = df_anno[df_anno['Sample'] < 1000]
+    for index, row in anno_subset.iterrows():
+        sample_idx = int(row['Sample'])
+        label_type = row['#']
+        
+        y_val = df_signal.iloc[sample_idx, 1]
+        plt.scatter(sample_idx, y_val, color='green', s=100, zorder=5)
+        plt.text(sample_idx, y_val + 30, label_type, color='black', fontsize=14, fontweight='bold', ha='center')
+
+    plt.title('Patient 106 - Raw ECG Features matched with Expert Labels', fontsize=14, fontweight='bold')
+    plt.xlabel('Sample Index (Time Step)', fontsize=12)
+    plt.ylabel('Voltage (mV)', fontsize=12)
+    plt.legend(loc='upper right')
+    plt.tight_layout()
+    plt.show()
+
+if __name__ == "__main__":
+    # Use relative paths for GitHub
+    visualize_ecg_with_labels('../data/106.csv', '../data/106annotations.txt')
