@@ -1,0 +1,44 @@
+import pandas as pd
+import numpy as np
+
+def extract_features(signal_path, anno_path, output_path):
+    print("Loading raw signals and annotations...")
+    df_signal = pd.read_csv(signal_path)
+    df_signal.iloc[:, 1] = pd.to_numeric(df_signal.iloc[:, 1], errors='coerce')
+    signal_values = df_signal.iloc[:, 1].values 
+    
+    df_anno = pd.read_csv(anno_path, sep='\s+')
+    
+    # Define sliding window parameters
+    BEFORE = 90
+    AFTER = 110
+    features = []
+    labels = []
+    
+    print("Performing sliding-window extraction...")
+    for index, row in df_anno.iterrows():
+        idx = int(row['Sample']) 
+        label = row['#']         
+        
+        # Binary classification: 'N' (Normal: 0) vs 'V' (PVC: 1)
+        if label in ['N', 'V'] and (idx - BEFORE >= 0) and (idx + AFTER < len(signal_values)):
+            heartbeat_slice = signal_values[idx - BEFORE : idx + AFTER]
+            features.append(heartbeat_slice)
+            labels.append(0 if label == 'N' else 1)
+
+    # Compile the final structured dataset
+    feature_columns = [f'time_step_{i}' for i in range(BEFORE + AFTER)]
+    df_ml = pd.DataFrame(features, columns=feature_columns)
+    df_ml['target_label'] = labels
+    
+    # Save the structured matrix
+    df_ml.to_csv(output_path, index=False)
+    print(f"Extraction complete! Extracted {len(df_ml)} samples.")
+    print(f"Dataset saved to: {output_path}")
+
+if __name__ == "__main__":
+    extract_features(
+        signal_path='../data/106.csv', 
+        anno_path='../data/106annotations.txt',
+        output_path='../data/mitbih_ml_dataset.csv'
+    )
